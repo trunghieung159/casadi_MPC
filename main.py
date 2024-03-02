@@ -13,10 +13,10 @@ if __name__ == "__main__":
     drones = []
     # Initialize Drone
     for i in range(NUM_UAV):
-        drone = Drone(i, INIT_STATES[i, :], predict_steps=5, radius=ROBOT_RADIUS)
+        drone = Drone(i, INIT_STATES[i, :], n_predict=5 ,radius=ROBOT_RADIUS)
         drones.append(drone)
     for i in range(NUM_UAV):
-        drones[i].setupController(drones, dt=TIMESTEP)
+        drones[i].setupController(drones)
     
     compute_times = []
     iter = 0
@@ -30,13 +30,15 @@ if __name__ == "__main__":
                 start = time.time()
                 control = drones[i].computeControlSignal(drones)
                 times.append(time.time()-start)
-                drones[i].updateState(control, TIMESTEP)
+                drones[i].updateState(control, DT)
 
             compute_times.append(times)
             iter += 1
             if iter % 10 == 0:
                 print("Iteration {}".format(iter))
-
+            
+            # if iter > 90:
+            #     break
             # Reach terminal condition
             count = 0
             for i in range(NUM_UAV):
