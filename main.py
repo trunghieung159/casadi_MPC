@@ -41,7 +41,7 @@ if __name__ == "__main__":
             #Reach terminal condition
             count = 0
             for i in range(NUM_UAV):
-                if drones[i].state[0] > 12:
+                if drones[i].state[0] > 15:
                     count += 1
             run = count < NUM_UAV
     finally:

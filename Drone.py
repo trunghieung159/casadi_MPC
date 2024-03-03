@@ -17,11 +17,7 @@ class Drone:
 
         self.n_state = 6
         self.n_control = 3
-
-        # Drone control bounds
-        self.control_max = np.array([2.0, 2.0, 1.0])
-        self.control_min = np.array([-2.0,-2.0,-1.0])
-
+        
         #Update known obs
         self.__update_known_obs(known_obs)
 
@@ -86,6 +82,9 @@ class Drone:
 
         # initial condition
         self.opt_start = self.opti.parameter(self.n_state)
+
+        # height constrains
+        self.opti.subject_to(self.opti.bounded(HEIGHT_BOUNDS[0] ,self.opt_states[:, 2], HEIGHT_BOUNDS[1]))
 
         #step-to-step constrains
         self.opti.subject_to(self.opt_states[0, :] == self.opt_start.T)

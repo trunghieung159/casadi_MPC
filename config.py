@@ -11,21 +11,23 @@ DT = 0.05
 W_u   = 0.1
 W_sep = 3.0
 W_dir = 1.0
-W_nav = 5.0
+W_nav = 2.0
 W_obs = 1.0
+
+HEIGHT_BOUNDS = np.array([0.0, 20.0])
 
 CONTROL_BOUNDS = np.array([[-2.0, 2.0],
                            [-2.0, 2.0],
                            [-1.0, 1.0]])
-AMAX = np.linalg.norm(CONTROL_BOUNDS[:2, 1])
+AMAX = np.linalg.norm(CONTROL_BOUNDS[:, 1])
 
 
-VREF = 1
+VREF = 1.2
 UREF = np.array([1,0,0])
 VELO_BOUNDS = np.array([[-2.0, 2.0],
                         [-2.0, 2.0],
                         [-0.5, 0.5]])
-VMAX = np.linalg.norm(VELO_BOUNDS[:2, 1])
+VMAX = np.linalg.norm(VELO_BOUNDS[:, 1])
 
 MAX_STEP_D = VMAX * DT
 DREF = 1.5
@@ -40,7 +42,7 @@ OBSTACLES = np.array([[4.0, 2.0, 0.1],
                       [8.0, 2.0, 0.1]])
 
 # Position x, y ,z
-INIT_POSITIONS = np.array([[1.3, 0.5, 5.0],
+INIT_POSITIONS = np.array([[1.5, 0.3, 5.0],
                            [0.0, 0.1, 5.0],
                            [0.4, 1.2, 5.0]])
 
