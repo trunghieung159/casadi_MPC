@@ -8,12 +8,11 @@ import time
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    starts = np.array([0, 0, 5])
-
     drones = []
+    known_obs = set()
     # Initialize Drone
     for i in range(NUM_UAV):
-        drone = Drone(i, INIT_STATES[i, :], n_predict=5 ,radius=ROBOT_RADIUS)
+        drone = Drone(i, INIT_STATES[i, :], 5, known_obs)
         drones.append(drone)
     for i in range(NUM_UAV):
         drones[i].setupController(drones)
@@ -28,9 +27,9 @@ if __name__ == "__main__":
             for i in range(NUM_UAV):
                 # compute velocity using nmpc
                 start = time.time()
-                control = drones[i].computeControlSignal(drones)
+                control = drones[i].computeControlSignal(drones, known_obs)
                 times.append(time.time()-start)
-                drones[i].updateState(control, DT)
+                drones[i].updateState(control, known_obs)
 
             compute_times.append(times)
             iter += 1
@@ -39,10 +38,10 @@ if __name__ == "__main__":
             
             # if iter > 90:
             #     break
-            # Reach terminal condition
+            #Reach terminal condition
             count = 0
             for i in range(NUM_UAV):
-                if drones[i].state[0] > 10:
+                if drones[i].state[0] > 12:
                     count += 1
             run = count < NUM_UAV
     finally:
