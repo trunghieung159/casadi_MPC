@@ -6,13 +6,14 @@ from config import *
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-
+import warnings
 if __name__ == "__main__":
+    warnings.simplefilter('ignore', np.RankWarning)
     drones = []
     known_obs = set()
     # Initialize Drone
     for i in range(NUM_UAV):
-        drone = Drone(i, INIT_STATES[i, :], 5, known_obs)
+        drone = Drone(i, INIT_STATES[i, :], 10, known_obs)
         drones.append(drone)
     for i in range(NUM_UAV):
         drones[i].setupController(drones)

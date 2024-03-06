@@ -9,12 +9,12 @@ NUM_UAV = 3
 DT = 0.05
 
 W_u   = 0.1
-W_sep = 3.0
-W_dir = 1.0
-W_nav = 2.0
+W_sep = 4.0
+W_dir = 2.0
+W_nav = 1.0
 W_obs = 1.0
 
-HEIGHT_BOUNDS = np.array([0.0, 20.0])
+HEIGHT_BOUNDS = np.array([2.0, 20.0])
 
 CONTROL_BOUNDS = np.array([[-2.0, 2.0],
                            [-2.0, 2.0],
@@ -22,12 +22,12 @@ CONTROL_BOUNDS = np.array([[-2.0, 2.0],
 AMAX = np.linalg.norm(CONTROL_BOUNDS[:, 1])
 
 
-VREF = 1.2
+VREF = 1.0
 UREF = np.array([1,0,0])
 VELO_BOUNDS = np.array([[-2.0, 2.0],
                         [-2.0, 2.0],
                         [-0.5, 0.5]])
-VMAX = np.linalg.norm(VELO_BOUNDS[:, 1])
+VMAX = 2
 
 MAX_STEP_D = VMAX * DT
 DREF = 1.5

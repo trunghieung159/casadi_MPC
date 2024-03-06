@@ -2,7 +2,7 @@ import numpy as np
 import math
 import time
 import casadi as ca
-
+import warnings
 from config import *
 
 class Drone:
@@ -13,11 +13,11 @@ class Drone:
         self.time_stamp = 0.0
         self.step = 0
         self.state = state
-        self.control = np.array([0.0, 0.0, 0.0])
+        self.control = np.array([0.0, 0.0, 0.0]) 
 
         self.n_state = 6
         self.n_control = 3
-        
+
         #Update known obs
         self.__update_known_obs(known_obs)
 
@@ -55,7 +55,7 @@ class Drone:
         #Update known obstacles
         self.__update_known_obs(known_obs)
 
-        #Update state predict
+        #Update state predicts
         for i in range(self.n_predict):
             self.state_predicts[i, :] = self.state_predicts[i+1, :] 
         for i in range(self.n_predict - 1):
@@ -64,7 +64,7 @@ class Drone:
         self.control_predicts[self.n_predict - 1, :] = np.array([0, 0, 0]) 
         self.state_predicts[self.n_predict, :] = self.state_predicts[self.n_predict - 1, :] + \
                                                 np.concatenate([self.state_predicts[self.n_predict -1, 3:],
-                                                0.5 * self.control_predicts[self.n_predict - 1, :]])
+                                                self.control_predicts[self.n_predict - 1, :]*DT])*DT
         
 
     def setupController(self, drones):
@@ -74,7 +74,6 @@ class Drone:
         # states and controls variable 
         self.opt_controls = self.opti.variable(self.n_predict, self.n_control)
         self.opt_states = self.opti.variable(self.n_predict+1, self.n_state)
-
         f = lambda x_, u_: ca.horzcat(*[
             x_[3:] + u_ * DT / 2,
             u_
@@ -83,42 +82,62 @@ class Drone:
         # initial condition
         self.opt_start = self.opti.parameter(self.n_state)
 
-        # height constrains
-        self.opti.subject_to(self.opti.bounded(HEIGHT_BOUNDS[0] ,self.opt_states[:, 2], HEIGHT_BOUNDS[1]))
+        #control constrains
+        self.opti.subject_to(self.opti.bounded(CONTROL_BOUNDS[0, 0], 
+                                               self.opt_controls[:,0], 
+                                               CONTROL_BOUNDS[0, 1]))
+        self.opti.subject_to(self.opti.bounded(CONTROL_BOUNDS[1, 0],
+                                               self.opt_controls[:,1],
+                                               CONTROL_BOUNDS[1, 1]))
+        self.opti.subject_to(self.opti.bounded(CONTROL_BOUNDS[2, 0], 
+                                               self.opt_controls[:,2], 
+                                               CONTROL_BOUNDS[2, 1]))
 
+        # height constrains
+        self.opti.subject_to(self.opti.bounded(HEIGHT_BOUNDS[0], 
+                                               self.opt_states[:, 2], 
+                                               HEIGHT_BOUNDS[1]))
+    
+        #velocity constrains
+        self.opti.subject_to(self.opti.bounded(VELO_BOUNDS[0, 0], 
+                                               self.opt_states[:, 3], 
+                                               VELO_BOUNDS[0, 1]))
+        
+        self.opti.subject_to(self.opti.bounded(VELO_BOUNDS[1, 0], 
+                                               self.opt_states[:, 4], 
+                                               VELO_BOUNDS[1, 1]))
+        
+        self.opti.subject_to(self.opti.bounded(VELO_BOUNDS[2, 0], 
+                                               self.opt_states[:, 5], 
+                                               VELO_BOUNDS[2, 1]))
+        velo_sqr = self.opt_states[:, 3]**2 + self.opt_states[:, 4]**2 + self.opt_states[:, 5]**2
+        self.opti.subject_to(velo_sqr <= VMAX**2)
+        
         #step-to-step constrains
         self.opti.subject_to(self.opt_states[0, :] == self.opt_start.T)
         for i in range(self.n_predict):
-            x_next = self.opt_states[i, :] \
+            next_state = self.opt_states[i, :] \
                     + f(self.opt_states[i, :], self.opt_controls[i, :])*DT
-            self.opti.subject_to(self.opt_states[i+1, :] == x_next)
-        
-        #velocity constrain
-        self.opti.subject_to(self.opti.bounded(VELO_BOUNDS[0, 0], self.opt_states[:, 3], VELO_BOUNDS[0, 1]))
-        self.opti.subject_to(self.opti.bounded(VELO_BOUNDS[1, 0], self.opt_states[:, 4], VELO_BOUNDS[1, 1]))
-        self.opti.subject_to(self.opti.bounded(VELO_BOUNDS[2, 0], self.opt_states[:, 5], VELO_BOUNDS[2, 1]))
+            self.opti.subject_to(self.opt_states[i+1, :] == next_state)
 
         #drone-to-drone distance constrains:
-        self.drones_appr_pos = [self.opti.parameter(self.n_predict, 3) for i in range(NUM_UAV - 1)]
-        covariance = np.array([0.5 * AMAX * (i*DT)**2 for i in range(1, self.n_predict+1)]) 
+        self.drones_appr_pos = [self.opti.parameter(self.n_predict, 3) 
+                                for i in range(NUM_UAV - 1)]
+        covariance = np.array([0.5 * AMAX * (i*DT)**2 
+                               for i in range(1, self.n_predict+1)]) 
         for i in range(NUM_UAV - 1):
-            distance = ca.sqrt((self.opt_states[1:,0] - self.drones_appr_pos[i][:, 0])**2 + \
-                               (self.opt_states[1:,1] - self.drones_appr_pos[i][:, 1])**2 + \
-                               (self.opt_states[1:,2] - self.drones_appr_pos[i][:, 2])**2)
-            self.opti.subject_to(distance > 2 * DRONE_R  + covariance + MAX_STEP_D)
-            # self.opti.subject_to(distance < SENSOR_R)
+            for j in range(0, self.n_predict):
+                distance = ca.norm_fro(self.opt_states[j+1, :3] 
+                                       - self.drones_appr_pos[i][j, :])
+                self.opti.subject_to(distance > 2 * DRONE_R 
+                                             + covariance[j] + MAX_STEP_D)
 
-        #obstacle-distance constrains
-        for i in range(self.n_predict+1):
-            for j in range(OBSTACLES.shape[0]):
-                distance = ca.sqrt((self.opt_states[i,0]-OBSTACLES[j,0])**2 + \
-                                    (self.opt_states[i,1]-OBSTACLES[j,1])**2) 
-                self.opti.subject_to(distance > DRONE_R + OBSTACLES[j,2] + MAX_STEP_D)
-        
-        self.opti.subject_to(self.opti.bounded(CONTROL_BOUNDS[0, 0], self.opt_controls[:,0], CONTROL_BOUNDS[0, 1]))
-        self.opti.subject_to(self.opti.bounded(CONTROL_BOUNDS[1, 0], self.opt_controls[:,1], CONTROL_BOUNDS[1, 1]))
-        self.opti.subject_to(self.opti.bounded(CONTROL_BOUNDS[2, 0], self.opt_controls[:,2], CONTROL_BOUNDS[2, 1]))
-
+        # #obstacle-distance constrains
+        # for i in range(self.n_predict+1):
+        #     for j in range(OBSTACLES.shape[0]):
+        #         distance = ca.norm_fro(self.opt_states[i, :2].T - OBSTACLES[j, :2])
+        #         self.opti.subject_to(distance > DRONE_R + 
+        #                              OBSTACLES[j,2] + MAX_STEP_D)
         opts_setting = {'ipopt.max_iter': 1e5,
                         'ipopt.print_level': 0,
                         'print_time': 0,
@@ -170,7 +189,6 @@ class Drone:
         c_nav = self.costNavigation(opt_states)
         c_obs = self.costObstacle(opt_states, known_obs)
         total = W_sep*c_sep + W_dir*c_dir + W_nav*c_nav + W_obs*c_obs + W_u*c_u
-
         return total
 
     # Minimal control signal
@@ -178,7 +196,7 @@ class Drone:
         cost_u = 0
         for i in range(self.n_predict):
             control = u[i,:]
-            cost_u += ca.mtimes([control, control.T])
+            cost_u += ca.dot(control, control)
         # print("u: ", cost_u.shape)
         return cost_u
 
@@ -190,6 +208,7 @@ class Drone:
             for i in range(self.n_predict + 1): 
                 pos_rel = drones[j].state_predicts[i,:3] - traj[i,:3].T
                 cost_sep += (ca.mtimes([pos_rel.T,pos_rel]) - DREF**2)**2
+
         # print("sep: ", cost_sep.shape)
         return cost_sep/(NUM_UAV-1)
 
@@ -197,7 +216,9 @@ class Drone:
         cost_dir = 0
         for i in range(self.n_predict + 1):
             vel = traj[i,3:]
-            cost_dir += (VMAX - ca.mtimes(vel,UREF) / np.linalg.norm(UREF))
+            d = ca.dot(vel.T, UREF)
+            f_d = (VMAX + VREF)/2 *(ca.cos(math.pi / (1.05 * (VMAX + VREF)) * (d + VMAX)) + 1)
+            cost_dir += f_d
         # print("dir: ", cost_dir.shape)
         return cost_dir
     
@@ -205,7 +226,8 @@ class Drone:
         cost_nav = 0
         for i in range(self.n_predict + 1):
             vel = traj[i,3:]
-            cost_nav += (ca.mtimes([vel,vel.T]) - VREF**2)**2
+            velo_sqr = ca.dot(vel, vel)
+            cost_nav += (velo_sqr**2 - VREF**4)**2
         # print("nav: ", cost_nav.shape)
         return cost_nav
     
@@ -214,7 +236,7 @@ class Drone:
         for i in range(self.n_predict + 1):
             for j in known_obs:
                 drone_to_centre = OBSTACLES[j, :2] - traj[i, :2].T
-                drone_to_centre_norm = ca.sqrt(drone_to_centre[0]**2 + drone_to_centre[1]**2) 
+                drone_to_centre_norm = ca.norm_fro(drone_to_centre)
                 drone_to_edge_norm = drone_to_centre_norm -  OBSTACLES[j, 2] 
                 cost_obs += (1 / (drone_to_edge_norm**2 - DRONE_R**2))
         return cost_obs
@@ -224,5 +246,5 @@ class Drone:
         for i in range(OBSTACLES.shape[0]):
             distance = np.linalg.norm(self.state[:2] - OBSTACLES[i, :2])
             if distance - OBSTACLES[i, 2] < SENSOR_R:
-                known_obs.add(i)
+                known_obs.add(i) 
 
