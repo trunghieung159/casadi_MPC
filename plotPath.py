@@ -14,7 +14,7 @@ path1 = np.load("path_1.npy")
 path2 = np.load("path_2.npy")
 
 # ax = plt.axes(projection="3d")
-plt.figure("MPC: Drone trajectories")
+plt.figure("MPC: XY view drone trajectories")
 ax = plt.axes()
 ax.set_title("Drone path")
 ax.grid(True)
@@ -39,9 +39,9 @@ plt.title("Motion paths")
 
 # Plot Speed
 plt.figure(num="MPC: Drone speed")
-speeds = np.array([np.linalg.norm(path0[:,4:6], axis=1),
-                   np.linalg.norm(path1[:,4:6], axis=1),
-                   np.linalg.norm(path2[:,4:6], axis=1)]).T
+speeds = np.array([np.linalg.norm(path0[:,4:7], axis=1),
+                   np.linalg.norm(path1[:,4:7], axis=1),
+                   np.linalg.norm(path2[:,4:7], axis=1)]).T
 plt.fill_between(path0[:,0], np.min(speeds,axis=1), np.max(speeds,axis=1), color="#1f77b4", label="Max/Min", alpha=0.3)
 plt.plot(path0[:,0], np.mean(speeds,axis=1), 'b-', label="Average")
 plt.plot([path0[0,0], path0[-1,0]], [VREF, VREF], 'g--', label="VREF") 
