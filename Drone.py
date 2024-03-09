@@ -112,7 +112,7 @@ class Drone:
                                                VELO_BOUNDS[2, 1]))
         velo_sqr = self.opt_states[:, 3]**2 + self.opt_states[:, 4]**2 + self.opt_states[:, 5]**2
         self.opti.subject_to(velo_sqr <= VMAX**2)
-        
+
         #step-to-step constrains
         self.opti.subject_to(self.opt_states[0, :] == self.opt_start.T)
         for i in range(self.n_predict):
@@ -198,48 +198,50 @@ class Drone:
             control = u[i,:]
             cost_u += ca.dot(control, control)
         # print("u: ", cost_u.shape)
-        return cost_u
+        return cost_u/self.n_predict
 
     def costSeparation(self, traj, drones):
         cost_sep = 0
         for j in range(NUM_UAV):
             if j == self.index:
                 continue
-            for i in range(self.n_predict + 1): 
+            for i in range(1, self.n_predict + 1): 
                 pos_rel = drones[j].state_predicts[i,:3] - traj[i,:3].T
-                cost_sep += (ca.mtimes([pos_rel.T,pos_rel]) - DREF**2)**2
-
+                cost = (ca.mtimes([pos_rel.T,pos_rel]) - DREF**2)**2
+                cost_sep += cost
         # print("sep: ", cost_sep.shape)
-        return cost_sep/(NUM_UAV-1)
+        return cost_sep / (NUM_UAV-1) / self.n_predict
 
     def costDirection(self, traj):
         cost_dir = 0
-        for i in range(self.n_predict + 1):
+        for i in range(1, self.n_predict + 1):
             vel = traj[i,3:]
             d = ca.dot(vel.T, UREF)
-            f_d = (VMAX + VREF)/2 *(ca.cos(math.pi / (1.05 * (VMAX + VREF)) * (d + VMAX)) + 1)
-            cost_dir += f_d
+            cost = (VMAX + VREF)/2 *(ca.cos(math.pi / (1.05 * (VMAX + VREF)) * (d + VMAX)) + 1)
+            cost_dir += cost 
         # print("dir: ", cost_dir.shape)
-        return cost_dir
+        return cost_dir / self.n_predict
     
     def costNavigation(self, traj):
         cost_nav = 0
-        for i in range(self.n_predict + 1):
+        for i in range(1, self.n_predict + 1):
             vel = traj[i,3:]
             velo_sqr = ca.dot(vel, vel)
-            cost_nav += (velo_sqr**2 - VREF**4)**2
+            cost = (velo_sqr**2 - VREF**4)**2
+            cost_nav += cost
         # print("nav: ", cost_nav.shape)
-        return cost_nav
+        return cost_nav / self.n_predict
     
     def costObstacle(self, traj, known_obs):
         cost_obs = 0
-        for i in range(self.n_predict + 1):
+        for i in range(1, self.n_predict + 1):
             for j in known_obs:
                 drone_to_centre = OBSTACLES[j, :2] - traj[i, :2].T
                 drone_to_centre_norm = ca.norm_fro(drone_to_centre)
                 drone_to_edge_norm = drone_to_centre_norm -  OBSTACLES[j, 2] 
-                cost_obs += (1 / (drone_to_edge_norm**2 - DRONE_R**2))
-        return cost_obs
+                cost = 1 / (drone_to_edge_norm**2 - DRONE_R**2)   
+                cost_obs += cost
+        return cost_obs / self.n_predict
     
     def __update_known_obs(self, known_obs):
         '''Update known obstacles by sensor'''
