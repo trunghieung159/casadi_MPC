@@ -217,7 +217,9 @@ class Drone:
         for i in range(1, self.n_predict + 1):
             vel = traj[i,3:]
             d = ca.dot(vel.T, UREF)
-            cost = (VMAX + VREF)/2 *(ca.cos(math.pi / (1.05 * (VMAX + VREF)) * (d + VMAX)) + 1)
+            cost = 0.5*(VMAX + VREF)*(ca.cos(ALPHA * math.pi * (d + VMAX)/ 
+                                            (VMAX + VREF))
+                                              + 1)
             cost_dir += cost 
         # print("dir: ", cost_dir.shape)
         return cost_dir / self.n_predict
