@@ -1,7 +1,7 @@
 from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt
 import numpy as np
-from config import *
+from setup import *
 
 def getCircle(x,y,r):
     theta = np.linspace( 0 , 2 * np.pi , 150 )   
@@ -73,7 +73,7 @@ for i in range(1,len(path0)):
     heading = path0[i,4:6]/np.linalg.norm(path0[i,4:6]) \
             + path1[i,4:6]/np.linalg.norm(path1[i,4:6]) \
             + path2[i,4:6]/np.linalg.norm(path2[i,4:6])
-    headings.append(np.linalg.norm(heading)/NUM_UAV)
+    headings.append(np.linalg.norm(heading)/N_UAV)
 plt.plot(path0[1:,0], headings)
 plt.xlabel("Time (s)")
 plt.ylabel("Order")

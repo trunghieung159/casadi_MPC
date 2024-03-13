@@ -3,10 +3,11 @@ import math
 import time
 import casadi as ca
 import warnings
-from config import *
+from setup import *
+from config_mpc import *
 
-class Drone:
-    def __init__(self, index:int, state:np.array, n_predict:int, known_obs):
+class DroneMPC:
+    def __init__(self, index:int, state:np.array, known_obs):
         self.index = index
         
         # Drone state and control
@@ -22,11 +23,10 @@ class Drone:
         self.__update_known_obs(known_obs)
 
         # State predictions
-        self.n_predict = n_predict
-        self.state_predicts = np.zeros((self.n_predict+1, self.n_state))
-        for i in range(self.n_predict + 1):
+        self.state_predicts = np.zeros((N_PREDICT+1, self.n_state))
+        for i in range(N_PREDICT + 1):
             self.state_predicts[i, :] = self.state
-        self.control_predicts = np.zeros((n_predict, self.n_control))
+        self.control_predicts = np.zeros((N_PREDICT, self.n_control))
 
         # Store drone path
         self.path = [np.concatenate([[self.time_stamp], self.state, self.control])]
@@ -56,22 +56,22 @@ class Drone:
         self.__update_known_obs(known_obs)
 
         #Update state and control predicts
-        self.state_predicts[:self.n_predict, :] = self.state_predicts_next[1:, :]
-        self.control_predicts[:self.n_predict-1, :] = self.control_predicts_next[1:, :]
+        self.state_predicts[:N_PREDICT, :] = self.state_predicts_next[1:, :]
+        self.control_predicts[:N_PREDICT-1, :] = self.control_predicts_next[1:, :]
 
-        self.control_predicts[self.n_predict - 1, :] = np.array([0, 0, 0]) 
-        self.state_predicts[self.n_predict, :] = self.state_predicts[self.n_predict - 1, :] + \
-                                                np.concatenate([self.state_predicts[self.n_predict -1, 3:],
-                                                self.control_predicts[self.n_predict - 1, :]])*DT
+        self.control_predicts[N_PREDICT - 1, :] = np.array([0, 0, 0]) 
+        self.state_predicts[N_PREDICT, :] = self.state_predicts[N_PREDICT - 1, :] + \
+                                                np.concatenate([self.state_predicts[N_PREDICT -1, 3:],
+                                                self.control_predicts[N_PREDICT - 1, :]])*DT
         
 
-    def setupController(self, drones):
+    def setupController(self):
         '''Set up init state, constrains for predictions'''
         # Predictive length
         self.opti = ca.Opti()
         # states and controls variable 
-        self.opt_controls = self.opti.variable(self.n_predict, self.n_control)
-        self.opt_states = self.opti.variable(self.n_predict+1, self.n_state)
+        self.opt_controls = self.opti.variable(N_PREDICT, self.n_control)
+        self.opt_states = self.opti.variable(N_PREDICT+1, self.n_state)
         f = lambda x_, u_: ca.horzcat(*[
             x_[3:] + u_ * DT / 2,
             u_
@@ -113,25 +113,25 @@ class Drone:
 
         #step-to-step constrains
         self.opti.subject_to(self.opt_states[0, :] == self.opt_start.T)
-        for i in range(self.n_predict):
+        for i in range(N_PREDICT):
             next_state = self.opt_states[i, :] \
                     + f(self.opt_states[i, :], self.opt_controls[i, :])*DT
             self.opti.subject_to(self.opt_states[i+1, :] == next_state)
 
         # #drone-to-drone distance constrains:
-        # self.drones_appr_pos = [self.opti.parameter(self.n_predict, 3) 
-        #                         for i in range(NUM_UAV - 1)]
+        # self.drones_appr_pos = [self.opti.parameter(N_PREDICT, 3) 
+        #                         for i in range(N_UAV - 1)]
         # covariance = np.array([0.5 * AMAX * (i*DT)**2 
-        #                        for i in range(1, self.n_predict+1)]) 
-        # for i in range(NUM_UAV - 1):
-        #     for j in range(0, self.n_predict):
+        #                        for i in range(1, N_PREDICT+1)]) 
+        # for i in range(N_UAV - 1):
+        #     for j in range(0, N_PREDICT):
         #         distance = ca.norm_fro(self.opt_states[j+1, :3] 
         #                                - self.drones_appr_pos[i][j, :])
         #         self.opti.subject_to(distance > 2 * DRONE_R 
         #                                      + covariance[j] + MAX_STEP_D)
 
         # #obstacle-distance constrains
-        # for i in range(self.n_predict+1):
+        # for i in range(N_PREDICT+1):
         #     for j in range(OBSTACLES.shape[0]):
         #         distance = ca.norm_fro(self.opt_states[i, :2].T - OBSTACLES[j, :2])
         #         self.opti.subject_to(distance > DRONE_R + 
@@ -156,15 +156,15 @@ class Drone:
 
         # #set drones approximate position for drone-to-drone distance constrains
         # index = 0
-        # for i in range(NUM_UAV):
+        # for i in range(N_UAV):
         #     if i == self.index:
         #         continue
-        #     for j in range(self.n_predict):
+        #     for j in range(N_PREDICT):
         #         self.opti.set_value(self.drones_appr_pos[index][j, :], 
         #                             drones[i].state[:3] + 
         #                             drones[i].state[3:] * (j+1) * DT)
         #     index += 1
-        #     if index > NUM_UAV-2:
+        #     if index > N_UAV-2:
         #         break
 
         # provide the initial guess of the optimization targets
@@ -192,54 +192,54 @@ class Drone:
     # Minimal control signal
     def costControl(self, u):
         cost_u = 0
-        for i in range(self.n_predict):
+        for i in range(N_PREDICT):
             control = u[i,:]
             cost_u += ca.dot(control, control)
         # print("u: ", cost_u.shape)
-        return cost_u/self.n_predict
+        return cost_u/N_PREDICT
 
     def costSeparation(self, traj, drones):
         cost_sep = 0
-        for j in range(NUM_UAV):
+        for j in range(N_UAV):
             if j == self.index:
                 continue
-            for i in range(1, self.n_predict + 1): 
+            for i in range(1, N_PREDICT + 1): 
                 pos_rel = drones[j].state_predicts[i,:3] - traj[i,:3].T
                 cost = (ca.mtimes([pos_rel.T,pos_rel]) - DREF**2)**2
                 cost_sep += cost
         # print("sep: ", cost_sep.shape)
-        return cost_sep / (NUM_UAV-1) / self.n_predict
+        return cost_sep / (N_UAV-1) / N_PREDICT
 
     def costDirection(self, traj):
         cost_dir = 0
-        for i in range(1, self.n_predict + 1):
+        for i in range(1, N_PREDICT + 1):
             vel = traj[i,3:]
             d = ca.dot(vel.T, UREF)
             cost = (d**3-VREF**3)**2
             cost_dir += cost 
         # print("dir: ", cost_dir.shape)
-        return cost_dir / self.n_predict
+        return cost_dir / N_PREDICT
     
     def costNavigation(self, traj):
         cost_nav = 0
-        for i in range(1, self.n_predict + 1):
+        for i in range(1, N_PREDICT + 1):
             vel = traj[i,3:]
             velo_sqr = ca.dot(vel, vel)
             cost = (velo_sqr**2 - VREF**4)**2
             cost_nav += cost
         # print("nav: ", cost_nav.shape)
-        return cost_nav / self.n_predict
+        return cost_nav / N_PREDICT
     
     def costObstacle(self, traj, known_obs):
         cost_obs = 0
-        for i in range(1, self.n_predict + 1):
+        for i in range(1, N_PREDICT + 1):
             for j in known_obs:
                 drone_to_centre = OBSTACLES[j, :2] - traj[i, :2].T
                 drone_to_centre_norm = ca.norm_fro(drone_to_centre)
                 drone_to_edge_norm = drone_to_centre_norm -  OBSTACLES[j, 2] 
                 cost = 1 / (drone_to_edge_norm**2 - DRONE_R**2)   
                 cost_obs += cost
-        return cost_obs / self.n_predict
+        return cost_obs / N_PREDICT
     
     def __update_known_obs(self, known_obs):
         '''Update known obstacles by sensor'''

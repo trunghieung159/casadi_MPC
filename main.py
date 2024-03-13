@@ -1,7 +1,8 @@
 
 
-from Drone import Drone
-from config import *
+from DroneMPC import DroneMPC
+from DroneBC import DroneBC
+from setup import *
 
 import numpy as np
 import time
@@ -10,11 +11,11 @@ if __name__ == "__main__":
     drones = []
     known_obs = set()
     # Initialize Drone
-    for i in range(NUM_UAV):
-        drone = Drone(i, INIT_STATES[i, :], 10, known_obs)
+    for i in range(N_UAV):
+        drone = DroneBC(i, INIT_STATES[i, :], known_obs)
         drones.append(drone)
-    for i in range(NUM_UAV):
-        drones[i].setupController(drones)
+    for i in range(N_UAV):
+        drones[i].setupController()
     
     compute_times = []
     iter = 0
@@ -24,28 +25,28 @@ if __name__ == "__main__":
         while run:
             times = []
             controls = []
-            for i in range(NUM_UAV):
+            for i in range(N_UAV):
                 # compute velocity using nmpc
                 start = time.time()
                 controls.append(drones[i].computeControlSignal(drones, known_obs))
                 times.append(time.time()-start)
             compute_times.append(times)
             known_obs = set()
-            for i in range(NUM_UAV):
+            for i in range(N_UAV):
                 drones[i].updateState(controls[i], known_obs)
             iter += 1
             if iter % 10 == 0:
                 print("Iteration {}".format(iter))
             #Reach terminal condition
             count = 0
-            for i in range(NUM_UAV):
+            for i in range(N_UAV):
                 if drones[i].state[0] > X_GOAL:
                     count += 1
-            run = count < NUM_UAV
+            run = count < N_UAV
     finally:
         print("[INFO] Saving")
         # Saving
-        for i in range(NUM_UAV):
+        for i in range(N_UAV):
             drone = drones[i]
             path = np.array(drone.path)
             np.save("path_{}.npy".format(drone.index), path)
