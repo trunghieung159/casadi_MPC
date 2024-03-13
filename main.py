@@ -6,9 +6,7 @@ from config import *
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-import warnings
 if __name__ == "__main__":
-    warnings.simplefilter('ignore', np.RankWarning)
     drones = []
     known_obs = set()
     # Initialize Drone
@@ -25,24 +23,23 @@ if __name__ == "__main__":
         run = True
         while run:
             times = []
+            controls = []
             for i in range(NUM_UAV):
                 # compute velocity using nmpc
                 start = time.time()
-                control = drones[i].computeControlSignal(drones, known_obs)
+                controls.append(drones[i].computeControlSignal(drones, known_obs))
                 times.append(time.time()-start)
-                drones[i].updateState(control, known_obs)
-
             compute_times.append(times)
+            known_obs = set()
+            for i in range(NUM_UAV):
+                drones[i].updateState(controls[i], known_obs)
             iter += 1
             if iter % 10 == 0:
                 print("Iteration {}".format(iter))
-            
-            # if iter > 90:
-            #     break
             #Reach terminal condition
             count = 0
             for i in range(NUM_UAV):
-                if drones[i].state[0] > 14:
+                if drones[i].state[0] > X_GOAL:
                     count += 1
             run = count < NUM_UAV
     finally:
