@@ -2,7 +2,7 @@ import numpy as np
 import math
 import time
 
-from setup import *
+from config_init import *
 from config_bc import *
 class DroneBC:
     def __init__(self, index:int, state:np.array, known_obs):

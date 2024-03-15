@@ -3,7 +3,7 @@ import math
 import time
 import casadi as ca
 import warnings
-from setup import *
+from config_init import *
 from config_mpc import *
 
 class DroneMPC:
@@ -183,10 +183,10 @@ class DroneMPC:
 
         c_u = self.costControl(opt_controls)
         c_sep = self.costSeparation(opt_states, drones)
-        c_dir = self.costDirection(opt_states)
         c_nav = self.costNavigation(opt_states)
+        c_spe = self.costSpeed(opt_states)
         c_obs = self.costObstacle(opt_states, known_obs)
-        total = W_sep*c_sep + W_dir*c_dir + W_nav*c_nav + W_obs*c_obs + W_u*c_u
+        total = W_sep*c_sep + W_spe*c_spe + W_nav*c_nav + W_obs*c_obs + W_u*c_u
         return total
 
     # Minimal control signal
@@ -210,25 +210,25 @@ class DroneMPC:
         # print("sep: ", cost_sep.shape)
         return cost_sep / (N_UAV-1) / N_PREDICT
 
-    def costDirection(self, traj):
-        cost_dir = 0
-        for i in range(1, N_PREDICT + 1):
-            vel = traj[i,3:]
-            d = ca.dot(vel.T, UREF)
-            cost = (d**3-VREF**3)**2
-            cost_dir += cost 
-        # print("dir: ", cost_dir.shape)
-        return cost_dir / N_PREDICT
-    
     def costNavigation(self, traj):
         cost_nav = 0
         for i in range(1, N_PREDICT + 1):
             vel = traj[i,3:]
+            d = ca.dot(vel.T, UREF)
+            cost = (d**3-VREF**3)**2
+            cost_nav += cost 
+        # print("nav: ", cost_dir.shape)
+        return cost_nav / N_PREDICT
+    
+    def costSpeed(self, traj):
+        cost_spe = 0
+        for i in range(1, N_PREDICT + 1):
+            vel = traj[i,3:]
             velo_sqr = ca.dot(vel, vel)
             cost = (velo_sqr**2 - VREF**4)**2
-            cost_nav += cost
+            cost_spe += cost
         # print("nav: ", cost_nav.shape)
-        return cost_nav / N_PREDICT
+        return cost_spe / N_PREDICT
     
     def costObstacle(self, traj, known_obs):
         cost_obs = 0
