@@ -57,9 +57,9 @@ OBSTACLES = np.array([[4.0,-2.0, 0.1],
 
 
 # Position x, y ,z
-INIT_POSITIONS = np.array([[1.5, 0.3, 5.0],
+INIT_POSITIONS = np.array([[1.5, 0.3, 4.9],
                            [0.0, 0.1, 5.0],
-                           [0.4, 1.2, 5.0]])
+                           [0.4, 1.2, 5.1]])
 
 # Velocity v_x, v_y, v_z
 INIT_VELOS = np.array([[0.0, 0.0, 0.0],

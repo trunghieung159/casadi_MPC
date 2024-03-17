@@ -57,6 +57,14 @@ class DroneBC:
         v_o = self.behaviorObstacle(observed_obstacles)
         v_c = self.behaviorCollision(drones)
         vel = W_nav*v_m + W_sep*v_f + W_obs*v_o + W_col*v_c
+
+        #Heigh constrain
+        next_height = self.state[2] + (self.state[5] + vel[2]*DT)*DT
+        if next_height < HEIGHT_BOUNDS[0]:
+            vel[2] = ((HEIGHT_BOUNDS[0] - self.state[2]) / DT - self.state[5])/DT
+        elif next_height > HEIGHT_BOUNDS[1]:
+            vel[2] = ((HEIGHT_BOUNDS[1] - self.state[2]) / DT - self.state[5])/DT
+
         if np.linalg.norm(vel) > VMAX:
             vel = vel * VMAX / np.linalg.norm(vel)
         control = 2*(vel - self.state[3:])/DT

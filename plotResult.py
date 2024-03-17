@@ -2,6 +2,8 @@ from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt
 import numpy as np
 from config_init import *
+from config_plot import *
+
 
 def getCircle(x,y,r):
     theta = np.linspace( 0 , 2 * np.pi , 150 )   
@@ -9,104 +11,130 @@ def getCircle(x,y,r):
     b = y + r * np.sin( theta )
     return a, b
 
-path0_mpc = np.load("MPC_path_0.npy")
-path1_mpc = np.load("MPC_path_1.npy")
-path2_mpc = np.load("MPC_path_2.npy")
+def plotObs(ax):
+    for j in range(OBSTACLES.shape[0]):
+        x, y, r = OBSTACLES[j,:]
+        a, b = getCircle(x, y, r)
+        ax.plot(a, b, '-k')
+        a, b = getCircle(x, y, r+DRONE_R-0.05)
+        ax.plot(a, b, '--k')
 
-path0_bc = np.load("BC_path_0.npy")
-path1_bc = np.load("BC_path_1.npy")
-path2_bc = np.load("BC_path_2.npy")
+def plotXYpath(ax, paths, method):
+    plotObs(ax)
+    ax.set_title("{method}: drone XY paths".format(method=method))
+    ax.grid(True)
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('y [m]')
+    ax.axis('equal')
+    for i in range(N_UAV):
+        ax.plot(paths[i][:,1], paths[i][:,2], 
+                label="drone {index}".format(index = i), 
+                linewidth =0.7)
+
+def plotXYPaths(BC_paths, MPC_paths):
+    fig, axs = plt.subplots(1, 2, num="MPC vs BC: XY paths")
+    plotXYpath(axs[0], BC_paths, "BC")
+    plotXYpath(axs[1], MPC_paths, "MPC")
+    handles, labels = axs[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper right")
+
+
+BC_paths = []
+MPC_paths = []
+
+for i in range(N_UAV):
+    BC_paths.append(np.load(PATH_FILE_NAME.format(method="BC", index=i)))
+    MPC_paths.append(np.load(PATH_FILE_NAME.format(method="MPC", index=i)))
+plotXYPaths(BC_paths, MPC_paths)
+
 # ax = plt.axes(projection="3d")
-plt.figure("MPC_vs_BC_XY_path")
-ax = plt.axes()
-ax.set_title("Drone path")
-ax.grid(True)
-ax.set_xlabel('x [m]')
-ax.set_ylabel('y [m]')
-ax.axis('equal')
-
-# Plot obstacles
-for j in range(OBSTACLES.shape[0]):
-    x, y, r = OBSTACLES[j,:]
-    a, b = getCircle(x, y, r)
-    ax.plot(a, b, '-k')
-    a, b = getCircle(x, y, r+DRONE_R-0.05)
-    ax.plot(a, b, '--k')
-
-# Plot path
-ax.plot(path0_mpc[:,1], path0_mpc[:,2], 'c', label="MPC: Drone 0", linewidth =0.7)
-ax.plot(path1_mpc[:,1], path1_mpc[:,2], 'm', label="MPC: Drone 1", linewidth =0.7)
-ax.plot(path2_mpc[:,1], path2_mpc[:,2], 'y', label="MPC: Drone 2", linewidth =0.7)
-
-ax.plot(path0_bc[:,1], path0_bc[:,2], 'c--', label="BC: Drone 0", linewidth =0.7)
-ax.plot(path1_bc[:,1], path1_bc[:,2], 'm--', label="BC: Drone 1", linewidth =0.7)
-ax.plot(path2_bc[:,1], path2_bc[:,2], 'y--', label="BC: Drone 2", linewidth =0.7)
-plt.legend()
-plt.title("MPC vs BC: Motion XY paths")
 
 # Plot Speed
 plt.figure(num="MPC_vs_BC_speed")
-speeds_mpc = np.array([np.linalg.norm(path0_mpc[:,4:7], axis=1),
-                   np.linalg.norm(path1_mpc[:,4:7], axis=1),
-                   np.linalg.norm(path2_mpc[:,4:7], axis=1)]).T
-speeds_bc = np.array([np.linalg.norm(path0_bc[:,4:7], axis=1),
-                   np.linalg.norm(path1_bc[:,4:7], axis=1),
-                   np.linalg.norm(path2_bc[:,4:7], axis=1)]).T
-plt.fill_between(path0_mpc[:,0], np.min(speeds_mpc,axis=1), np.max(speeds_mpc,axis=1), color="#1f77b4", label="MPC Max/Min", alpha=0.3)
-plt.fill_between(path0_bc[:,0], np.min(speeds_bc,axis=1), np.max(speeds_bc,axis=1), color="#e9828c", label="BC Max/Min", alpha=0.3)
+speeds_mpc = np.array([np.linalg.norm(MPC_paths[i][:,4:7], axis=1) for i in range(N_UAV)]).T
+speeds_bc = np.array([np.linalg.norm(BC_paths[i][:,4:7], axis=1) for i in range(N_UAV)]).T
 
-plt.plot(path0_mpc[:,0], np.mean(speeds_mpc,axis=1), 'b-', label="MPC Average")
-plt.plot(path0_bc[:,0], np.mean(speeds_bc,axis=1), 'r-', label="BC Average")
-plt.plot([path0_mpc[0,0], max(path0_mpc[-1,0], path0_bc[-1,0])], [VREF, VREF], 'g--', label="VREF") 
+plt.fill_between(MPC_paths[0][:,0], np.min(speeds_mpc,axis=1),
+                  np.max(speeds_mpc,axis=1), color="#1f77b4", 
+                  label="MPC Max/Min", alpha=0.3)
+plt.fill_between(BC_paths[0][:,0], np.min(speeds_bc,axis=1), 
+                 np.max(speeds_bc,axis=1), color="#e9828c", 
+                 label="BC Max/Min", alpha=0.3)
+
+plt.plot(MPC_paths[0][:,0], np.mean(speeds_mpc,axis=1), 'b-', label="MPC Average")
+plt.plot(BC_paths[0][:,0], np.mean(speeds_bc,axis=1), 'r-', label="BC Average")
+plt.plot([MPC_paths[0][0,0], max(BC_paths[0][-1,0], BC_paths[0][-1,0])], 
+         [VREF, VREF], 'g--', label="VREF") 
 plt.xlabel("Time (s)")
 plt.ylabel("Speed (m/s)")
-plt.xlim([0, max(path0_mpc[-1,0], path0_bc[-1,0])])
+plt.xlim([0, max(MPC_paths[0][-1,0], BC_paths[0][-1,0])])
 plt.legend()
 plt.grid(True)
 plt.title("MPC vs BC: Drone speed")
+
 # Plot distance
 plt.figure(num="MPC_vs_BC_distance")
-distances_mpc = np.array([np.linalg.norm(path0_mpc[:,1:4]-path1_mpc[:,1:4], axis=1),
-                      np.linalg.norm(path1_mpc[:,1:4]-path2_mpc[:,1:4], axis=1),
-                      np.linalg.norm(path2_mpc[:,1:4]-path0_mpc[:,1:4], axis=1)]).T
-distances_bc = np.array([np.linalg.norm(path0_bc[:,1:4]-path1_bc[:,1:4], axis=1),
-                      np.linalg.norm(path1_bc[:,1:4]-path2_bc[:,1:4], axis=1),
-                      np.linalg.norm(path2_bc[:,1:4]-path0_bc[:,1:4], axis=1)]).T
-plt.fill_between(path0_mpc[:,0], np.min(distances_mpc,axis=1), np.max(distances_mpc,axis=1), color="#1f77b4", label="MPC Max/Min", alpha=0.3)
-plt.fill_between(path0_bc[:,0], np.min(distances_bc,axis=1), np.max(distances_bc,axis=1), color="#e9828c", label="BC Max/Min", alpha=0.3)
+mpc_distances_array = []
+bc_distances_array = []
+for i in range(N_UAV):
+    for j in range(i+1, N_UAV):
+        mpc_distances_array.append(np.linalg.norm(MPC_paths[i][:,1:4] 
+                                                  - MPC_paths[j][:,1:4], axis=1))
+        bc_distances_array.append(np.linalg.norm(BC_paths[i][:,1:4] 
+                                                 - BC_paths[j][:,1:4], axis=1))
 
-plt.plot(path0_mpc[:,0], np.mean(distances_mpc,axis=1), 'b-', label="MPC Average")
-plt.plot(path0_bc[:,0], np.mean(distances_bc,axis=1), 'r-', label="BC Average")
+distances_mpc = np.array(mpc_distances_array).T
+distances_bc = np.array(bc_distances_array).T
 
-plt.plot([path0_mpc[0,0], max(path0_mpc[-1,0], path0_bc[-1,0])], [DREF, DREF], 'g--', label='DREF')
-# plt.plot([path0_mpc[0,0], max(path0_mpc[-1,0], path0_bc[-1,0])], [2*DRONE_R, 2*DRONE_R], 'k--', label="Safety radius")
+plt.fill_between(MPC_paths[0][:,0], np.min(distances_mpc,axis=1), 
+                 np.max(distances_mpc,axis=1), color="#1f77b4", 
+                 label="MPC Max/Min", alpha=0.3)
+plt.fill_between(BC_paths[0][:,0], np.min(distances_bc,axis=1), 
+                 np.max(distances_bc,axis=1), color="#e9828c", 
+                 label="BC Max/Min", alpha=0.3)
+
+plt.plot(MPC_paths[0][:,0], 
+         np.mean(distances_mpc,axis=1), 
+         'b-', label="MPC Average")
+plt.plot(BC_paths[0][:,0], 
+         np.mean(distances_bc,axis=1), 
+         'r-', label="BC Average")
+
+plt.plot([MPC_paths[0][0,0], max(MPC_paths[0][-1,0], BC_paths[0][-1,0])], 
+         [DREF, DREF], 'g--', label='DREF')
+# plt.plot([MPC_paths[0][0,0], max(MPC_paths[0][-1,0], BC_paths[0][-1,0])], 
+#          [2*DRONE_R, 2*DRONE_R], 'k--', label="Safety radius")
 plt.xlabel("Time (s)")
 plt.ylabel("Inter-agent distance (m)")
-plt.xlim([0, max(path0_mpc[-1,0], path0_bc[-1,0])])
+plt.xlim([0, max(MPC_paths[0][-1,0], BC_paths[0][-1,0])])
 plt.legend()
 plt.grid(True)
 plt.title("MPC vs BC: Inter-agent distances")
+
 # Plot order
 plt.figure(num="MPC_vs_BC_order")
 headings_mpc = []
-for i in range(1,len(path0_mpc)):
-    heading = path0_mpc[i,4:6]/np.linalg.norm(path0_mpc[i,4:6]) \
-            + path1_mpc[i,4:6]/np.linalg.norm(path1_mpc[i,4:6]) \
-            + path2_mpc[i,4:6]/np.linalg.norm(path2_mpc[i,4:6])
+for i in range(1,len(MPC_paths[0])):
+    heading = np.zeros(2)
+    for j in range(N_UAV):
+        if np.linalg.norm(MPC_paths[j][i,4:6]) != 0:
+            heading += MPC_paths[j][i,4:6]/np.linalg.norm(MPC_paths[j][i,4:6]) 
     headings_mpc.append(np.linalg.norm(heading)/N_UAV)
+    
 headings_bc = []
-for i in range(1,len(path0_bc)):
-    heading = path0_bc[i,4:6]/np.linalg.norm(path0_bc[i,4:6]) \
-            + path1_bc[i,4:6]/np.linalg.norm(path1_bc[i,4:6]) \
-            + path2_bc[i,4:6]/np.linalg.norm(path2_bc[i,4:6])
+for i in range(1,len(BC_paths[0])):
+    heading = np.zeros(2)
+    for j in range(N_UAV):
+        if np.linalg.norm(BC_paths[j][i,4:6]) != 0:
+            heading += BC_paths[j][i,4:6]/np.linalg.norm(BC_paths[j][i,4:6]) 
     headings_bc.append(np.linalg.norm(heading)/N_UAV)
-
-plt.plot(path0_mpc[1:,0], headings_mpc, 'b', label="MPC")
-plt.plot(path0_bc[1:,0], headings_bc, 'r', label="BC")
+    
+plt.plot(MPC_paths[0][1:,0], headings_mpc, 'b', label="MPC")
+plt.plot(BC_paths[0][1:,0], headings_bc, 'r', label="BC")
 
 plt.xlabel("Time (s)")
 plt.ylabel("Order")
-plt.xlim([0, max(path0_mpc[-1,0], path0_bc[-1,0])])
+plt.xlim([0, max(MPC_paths[0][-1,0], BC_paths[0][-1,0])])
 plt.legend()
 plt.grid(True)
 plt.title("MPC vs BC: Drone orders")

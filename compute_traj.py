@@ -1,7 +1,7 @@
 from DroneMPC import DroneMPC
 from DroneBC import DroneBC
 from config_init import *
-
+from config_plot import *
 def runAndSave(method : str):
     drones = []
     known_obs = set()
@@ -50,12 +50,10 @@ def runAndSave(method : str):
     finally:
         print(method ,"Saving")
         # Saving
-        path_file_name = "{method}_path_{index}.npy"
-        times_file_name = "{method}_process_time.npy"
         for i in range(N_UAV):
             path = np.array(drones[i].path)
-            np.save(path_file_name.format(method = method, index =i), path)
-        np.save(times_file_name.format(method = method), compute_times)
+            np.save(PATH_FILE_NAME.format(method = method, index =str(i)), path)
+        np.save(TIMES_FILE_NAME.format(method = method), compute_times)
         compute_times = np.array(compute_times)
         print("Average time: {:.6}s".format(compute_times.mean()))
         print("Max time: {:.6}s".format(compute_times.max()))   
