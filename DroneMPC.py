@@ -184,9 +184,9 @@ class DroneMPC:
         c_u = self.costControl(opt_controls)
         c_sep = self.costSeparation(opt_states, drones)
         c_nav = self.costNavigation(opt_states)
-        c_spe = self.costSpeed(opt_states)
         c_obs = self.costObstacle(opt_states, known_obs)
-        total = W_sep*c_sep + W_spe*c_spe + W_nav*c_nav + W_obs*c_obs + W_u*c_u
+        total = W_sep*c_sep + W_nav*c_nav + W_obs*c_obs + W_u*c_u
+
         return total
 
     # Minimal control signal
@@ -214,21 +214,10 @@ class DroneMPC:
         cost_nav = 0
         for i in range(1, N_PREDICT + 1):
             vel = traj[i,3:]
-            d = ca.dot(vel.T, UREF)
-            cost = (d**3-VREF**3)**2
-            cost_nav += cost 
+            v_ref = VREF*UREF
+            cost_nav += ca.norm_fro(vel.T - v_ref)**2
         # print("nav: ", cost_dir.shape)
         return cost_nav / N_PREDICT
-    
-    def costSpeed(self, traj):
-        cost_spe = 0
-        for i in range(1, N_PREDICT + 1):
-            vel = traj[i,3:]
-            velo_sqr = ca.dot(vel, vel)
-            cost = (velo_sqr**2 - VREF**4)**2
-            cost_spe += cost
-        # print("nav: ", cost_nav.shape)
-        return cost_spe / N_PREDICT
     
     def costObstacle(self, traj, known_obs):
         cost_obs = 0
