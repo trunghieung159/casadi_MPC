@@ -98,7 +98,7 @@ class DroneBC:
     
     def behaviorSeparation(self, drones):
         v_s = np.zeros(self.n_control)
-        for i in range(N_UAV):
+        for i in self.neighbor_indices:
             if i == self.index:
                 continue
             pos_rel = drones[i].state[:3]-self.state[:3]
@@ -122,7 +122,7 @@ class DroneBC:
     
     def behaviorCollision(self, drones):
         vel_col = np.zeros(self.n_control)
-        for j in range(N_UAV):
+        for j in self.neighbor_indices:
             if j == self.index:
                 continue
             pos_rel = drones[j].state[:3] - self.state[:3]
@@ -135,6 +135,15 @@ class DroneBC:
             vel_col += math.exp(rs - 2*DRONE_R)/(rs - 2*DRONE_R)*dir
         vel_col /= (N_UAV-1)
         return vel_col
+
+    def update_neighbors(self, drones):
+        distance_list = []
+        for i in range(N_UAV):
+            dis = np.linalg.norm(self.state[:3] - drones[i].state[:3])
+            distance_list.append(dis)
+        distance_list = np.array(distance_list)
+        neighbor_set = np.argsort(distance_list)[1:1+N_NEIGHBOR]
+        self.neighbor_indices = neighbor_set
 
     def observerObstacles(self, known_obs):
         observed_obstacles = []

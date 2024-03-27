@@ -17,9 +17,10 @@ def runAndSave(method : str):
     else:
         print("Invalid control method. Exit now")
         return
-    #Set up controller
+    #Set up controller. Update neighbors
     for i in range(N_UAV):
         drones[i].setupController()
+        drones[i].update_neighbors(drones)
     
     compute_times = []
     iter = 0
@@ -38,6 +39,8 @@ def runAndSave(method : str):
             known_obs = set()
             for i in range(N_UAV):
                 drones[i].updateState(controls[i], known_obs)
+            for i in range(N_UAV):
+                drones[i].update_neighbors(drones)
             iter += 1
             if iter % 10 == 0:
                 print("Iteration {}".format(iter))

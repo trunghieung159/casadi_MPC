@@ -99,7 +99,7 @@ def plotDistances(BC_paths, MPC_paths):
     plt.grid(True)
     plt.title("MPC vs BC: Inter-agent distances")
 
-def plotOrder(MPC_paths, BC_paths):
+def plotOrder(BC_paths, MPC_paths):
     plt.figure(num="MPC_vs_BC_order")
     headings_mpc = []
     for i in range(1,len(MPC_paths[0])):
